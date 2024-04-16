@@ -18,13 +18,14 @@ try:
     while True:
         # Lee el estado del pin
         estado = GPIO.input(sensorMagnetico)
+        estado2 = GPIO.input(sensorMagnetico2)
 
         # Obtiene la hora actual con segundos
         hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Muestra el estado del pin junto con la hora
         print(f"{hora_actual} - Estado del pin {sensorMagnetico} (CABLE BLANCO): {estado}")
-        print(f"{hora_actual} - Estado del pin {sensorMagnetico2} (CABLE AZUL): {estado}")
+        print(f"{hora_actual} - Estado del pin {sensorMagnetico2} (CABLE AZUL): {estado2}")
 
         # Espera medio segundo antes de volver a leer
         time.sleep(1)
