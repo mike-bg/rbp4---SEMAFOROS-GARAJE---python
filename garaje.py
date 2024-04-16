@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
 import time
+from datetime import datetime
 
 # Configuración de los pines GPIO en modo BOARD
 GPIO.setmode(GPIO.BOARD)
@@ -11,11 +12,14 @@ try:
         # Lee el estado del pin
         estado = GPIO.input(pin_number)
 
-        # Muestra el estado
-        print("Estado del pin", pin_number, ":", estado)
+        # Obtiene la hora actual con segundos
+        hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Espera un segundo antes de volver a leer
-        time.sleep(1)
+        # Muestra el estado del pin junto con la hora
+        print(f"{hora_actual} - Estado del pin {pin_number}: {estado}")
+
+        # Espera medio segundo antes de volver a leer
+        time.sleep(0.5)
 
 except KeyboardInterrupt:
     # Limpiar los pines GPIO antes de salir si se presiona Ctrl+C
