@@ -33,6 +33,8 @@ try:
         print(f"{hora_actual} - Estado del pin {sensorMagnetico} (CABLE BLANCO): {estado}")
         print(f"{hora_actual} - Estado del pin {sensorMagnetico2} (CABLE AZUL): {estado2}")
 
+        print(f"-------------------------------------------------------------------------------")
+
         # Espera medio segundo antes de volver a leer
         time.sleep(1)
 
