@@ -2,6 +2,9 @@ import RPi.GPIO as GPIO
 import time
 from datetime import datetime
 
+#cambio git no se refleja
+
+
 # Configuración de los pines GPIO en modo BOARD
 GPIO.setmode(GPIO.BOARD)
 pin_number = 12  # Por ejemplo, para usar el pin físico 12 de la Raspberry Pi
@@ -27,3 +30,4 @@ except KeyboardInterrupt:
 finally:
     GPIO.cleanup()
     print("Pines GPIO limpiados.")
+
