@@ -27,6 +27,8 @@ try:
         print(f"{hora_actual} - Estado del pin {sensorMagnetico} (CABLE BLANCO): {estado}")
         print(f"{hora_actual} - Estado del pin {sensorMagnetico2} (CABLE AZUL): {estado2}")
 
+        time.sleep(0.5)
+
         estado = GPIO.input(sensorMagnetico)
         estado2 = GPIO.input(sensorMagnetico2)
 
@@ -36,7 +38,7 @@ try:
         print(f"-------------------------------------------------------------------------------")
 
         # Espera medio segundo antes de volver a leer
-        time.sleep(1)
+        time.sleep(0.5)
 
 except KeyboardInterrupt:
     # Limpiar los pines GPIO antes de salir si se presiona Ctrl+C
