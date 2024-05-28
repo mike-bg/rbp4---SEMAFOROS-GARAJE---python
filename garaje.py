@@ -5,7 +5,7 @@ import time
 GPIO.setmode(GPIO.BCM)
 
 # Definir el pin GPIO (por ejemplo, GPIO17)
-relay_pin = 17
+relay_pin = 23
 
 # Configurar el pin como salida
 GPIO.setup(relay_pin, GPIO.OUT)
