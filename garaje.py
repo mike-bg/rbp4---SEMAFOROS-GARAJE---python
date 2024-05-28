@@ -1,49 +1,30 @@
 import RPi.GPIO as GPIO
 import time
-from datetime import datetime
 
-#cambio git no se refleja
+# Configurar el modo de los pines (BCM o BOARD)
+GPIO.setmode(GPIO.BCM)
 
+# Definir el pin GPIO (por ejemplo, GPIO17)
+relay_pin = 17
 
-# Configuración de los pines GPIO en modo BOARD
-GPIO.setmode(GPIO.BOARD)
+# Configurar el pin como salida
+GPIO.setup(relay_pin, GPIO.OUT)
 
-sensorMagnetico = 12  # pin físico 12 de la Raspberry Pi
-GPIO.setup(sensorMagnetico, GPIO.IN)  # Configura el pin como entrada
+# Función para encender el relé
+def relay_on():
+    GPIO.output(relay_pin, GPIO.HIGH)  # HIGH para activar el relé
 
-sensorMagnetico2 = 11  # pin físico 11 de la Raspberry Pi
-GPIO.setup(sensorMagnetico2, GPIO.IN)  # Configura el pin como entrada
+# Función para apagar el relé
+def relay_off():
+    GPIO.output(relay_pin, GPIO.LOW)  # LOW para desactivar el relé
 
 try:
     while True:
-        # Lee el estado del pin
-        estado = GPIO.input(sensorMagnetico)
-        estado2 = GPIO.input(sensorMagnetico2)
-
-        # Obtiene la hora actual con segundos
-        hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Muestra el estado del pin junto con la hora
-        print(f"{hora_actual} - Estado del pin {sensorMagnetico} (CABLE BLANCO): {estado}")
-        print(f"{hora_actual} - Estado del pin {sensorMagnetico2} (CABLE AZUL): {estado2}")
-
-        time.sleep(0.5)
-
-        estado = GPIO.input(sensorMagnetico)
-        estado2 = GPIO.input(sensorMagnetico2)
-
-        print(f"{hora_actual} - Estado del pin {sensorMagnetico} (CABLE BLANCO): {estado}")
-        print(f"{hora_actual} - Estado del pin {sensorMagnetico2} (CABLE AZUL): {estado2}")
-
-        print(f"-------------------------------------------------------------------------------")
-
-        # Espera medio segundo antes de volver a leer
-        time.sleep(0.5)
-
+        relay_on()
+        time.sleep(2)  # Relé encendido por 2 segundos
+        relay_off()
+        time.sleep(2)  # Relé apagado por 2 segundos
 except KeyboardInterrupt:
-    # Limpiar los pines GPIO antes de salir si se presiona Ctrl+C
-    print("\nPrograma detenido por el usuario.")
+    pass
 finally:
     GPIO.cleanup()
-    print("Pines GPIO limpiados.")
-
