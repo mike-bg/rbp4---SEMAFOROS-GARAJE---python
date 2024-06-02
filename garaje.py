@@ -21,6 +21,8 @@ try:
         else:
             print("No se detecta objeto")
 
+        time.sleep(.5)
+
         # Activar los relés
         #GPIO.output(RELAY_PIN_1, GPIO.HIGH)
         #GPIO.output(RELAY_PIN_2, GPIO.HIGH)
