@@ -1,30 +1,34 @@
 import RPi.GPIO as GPIO
 import time
 
-# Configurar el modo de los pines (BCM o BOARD)
-GPIO.setmode(GPIO.BCM)
+# Configuración de los pines GPIO
+RELAY_PIN_1 = 23
+RELAY_PIN_2 = 24
 
-# Definir el pin GPIO (por ejemplo, GPIO17)
-relay_pin = 23
-
-# Configurar el pin como salida
-GPIO.setup(relay_pin, GPIO.OUT)
-
-# Función para encender el relé
-def relay_on():
-    GPIO.output(relay_pin, GPIO.HIGH)  # HIGH para activar el relé
-
-# Función para apagar el relé
-def relay_off():
-    GPIO.output(relay_pin, GPIO.LOW)  # LOW para desactivar el relé
+# Configuración de la librería RPi.GPIO
+GPIO.setmode(GPIO.BCM)  # Usamos la numeración BCM
+GPIO.setup(RELAY_PIN_1, GPIO.OUT)  # Configuramos el pin 23 como salida
+GPIO.setup(RELAY_PIN_2, GPIO.OUT)  # Configuramos el pin 24 como salida
 
 try:
     while True:
-        relay_on()
-        time.sleep(2)  # Relé encendido por 2 segundos
-        relay_off()
-        time.sleep(2)  # Relé apagado por 2 segundos
+        # Activar los relés
+        GPIO.output(RELAY_PIN_1, GPIO.HIGH)
+        GPIO.output(RELAY_PIN_2, GPIO.HIGH)
+        print("Relés activados")
+        time.sleep(1)  # Espera 1 segundo
+
+        # Desactivar los relés
+        GPIO.output(RELAY_PIN_1, GPIO.LOW)
+        GPIO.output(RELAY_PIN_2, GPIO.LOW)
+        print("Relés desactivados")
+        time.sleep(1)  # Espera 1 segundo
+
 except KeyboardInterrupt:
-    pass
+    # Limpiar los GPIO en caso de interrupción
+    GPIO.cleanup()
+    print("Programa terminado")
+
 finally:
+    # Limpiar los GPIO al final del programa
     GPIO.cleanup()
