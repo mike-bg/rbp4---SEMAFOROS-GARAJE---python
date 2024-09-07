@@ -1,0 +1,409 @@
+#include <SoftwareSerial.h>
+
+// Definir los pines para el RS485
+const int pinDE = 30; // Pin de Control DE/RE
+const int pinDI = 32; // Pin de Datos TX
+const int pinRO = 34; // Pin de Datos RX
+
+// Configurar la comunicación serial
+SoftwareSerial rs485Serial(pinRO, pinDI); // RX, TX
+
+
+// Definir los pines a los que están conectados los relés
+const int releRojo = 8;
+const int releVerde = 9;
+const int relePuertaArriba = 10;  // Pin para el relé que controla la puerta de arriba
+const int relePuertaAbajo = 11;   // Pin para el relé que controla la puerta de abajo
+
+// Definir los pines para los sensores de infrarrojos
+const int infraAbajo_abajo = 2;
+const int infraAbajo_arriba = 3;
+const int infraIzquierda_arriba = 4;
+const int infraIzquierda_pared = 5;
+const int infraDerecha_arriba = 6;
+const int infraDerecha_pared = 7;
+
+// Definir tiempo en milisegundos para leer la 2ª comprobacion de sensores
+const int tiempoComprobacionSensores = 100;
+
+// Tiempo de activacion de cada rele de puerta
+const int tiempoPuertaArriba = 500;
+const int tiempoPuertaAbajo = 500;
+
+// Cambia estos valores según vayan a usar 1 puerta, o las 2
+bool puertaArriba = false; 
+bool puertaAbajo = false;
+// Definir los pines para los interruptores SPDT
+const int pinInterruptorArriba = 12;
+const int pinInterruptorAbajo = 13;
+const int debounceDelay = 50; // tiempo entre comprobaciones para interruptores de puertas
+
+
+// Para controlar el estado de las puertas: 0 = CERRADA , 1 = MOVIMIENTO, 2 = ABIERTA
+int estadoArriba = 0;
+int estadoAbajo = 0;
+
+// Función de configuración inicial
+void setup() {
+  Serial.begin(9600); // Comunicación Serial para depuración
+
+  rs485Serial.begin(9600); // Comunicación RS485
+  pinMode(pinDE, OUTPUT);
+  digitalWrite(pinDE, LOW); // Configurar en recepción
+
+  // Configurar los pines de los relés como salidas
+  pinMode(releRojo, OUTPUT);
+  pinMode(releVerde, OUTPUT);
+  pinMode(relePuertaArriba, OUTPUT);
+  pinMode(relePuertaAbajo, OUTPUT);
+  
+  // Configurar los pines de los sensores como entradas
+  pinMode(infraAbajo_abajo, INPUT);
+  pinMode(infraAbajo_arriba, INPUT);
+  pinMode(infraIzquierda_arriba, INPUT);
+  pinMode(infraIzquierda_pared, INPUT);
+  pinMode(infraDerecha_arriba, INPUT);
+  pinMode(infraDerecha_pared, INPUT);
+  // Configurar los pines de los interruptores como entradas
+  //pinMode(pinInterruptorArriba, INPUT);
+  //pinMode(pinInterruptorAbajo, INPUT);
+  // Puedes habilitar las resistencias de pull-up internas si lo necesitas
+  pinMode(pinInterruptorArriba, INPUT_PULLUP);
+  pinMode(pinInterruptorAbajo, INPUT_PULLUP);
+  
+  // Apagar ambos relés al inicio
+  digitalWrite(releRojo, LOW);
+  digitalWrite(releVerde, LOW);
+  digitalWrite(relePuertaArriba, LOW);
+  digitalWrite(relePuertaAbajo, LOW);
+}
+
+// para el RS485
+void procesarMensaje(String mensaje) {
+  if (mensaje.startsWith("NANO PARED: ABRIR")) {
+    activarRelePuertaArriba();
+    activarRelePuertaAbajo();
+  }
+  // Agregar más condiciones para otros comandos
+}
+
+void activarRelePuertaArriba() {
+  digitalWrite(relePuertaArriba, HIGH);  // Activar el relé
+  delay(tiempoPuertaArriba);             // Mantenerlo activado tiempo variable
+  digitalWrite(relePuertaArriba, LOW);   // Desactivar el relé
+  Serial.println("ACCIONADO INTERRUPTOR PUERTA DE ARRIBA");
+}
+
+void activarRelePuertaAbajo() {
+  digitalWrite(relePuertaAbajo, HIGH);   // Activar el relé
+  delay(tiempoPuertaAbajo);              // Mantenerlo activado durante tiempo variable
+  digitalWrite(relePuertaAbajo, LOW);    // Desactivar el relé
+  Serial.println("ACCIONADO INTERRUPTOR PUERTA DE ABAJO");
+}
+
+bool leerConDebounce(int pin, int numLecturas, int delayEntreLecturas) {
+  bool lecturaInicial = digitalRead(pin); 
+  for (int i = 0; i < numLecturas; i++) {
+    delay(delayEntreLecturas);
+    if (digitalRead(pin) != lecturaInicial) {
+      return false;  // Si alguna lectura es diferente, descartamos
+    }
+  }
+  return lecturaInicial;  // Todas las lecturas coinciden
+}
+
+bool leerInterruptorDebounce(int pin, int numLecturas, int delayEntreLecturas) {
+  int cuentaHigh = 0;
+  int cuentaLow = 0;
+
+  // Leer el estado del pin varias veces
+  for (int i = 0; i < numLecturas; i++) {
+    if (digitalRead(pin) == HIGH) {
+      cuentaHigh++;
+    } else {
+      cuentaLow++;
+    }
+    delay(delayEntreLecturas);  // Esperar entre lecturas
+  }
+
+  // Devolver true si la mayoría de lecturas son HIGH, false si la mayoría son LOW
+  return (cuentaHigh > cuentaLow) ? HIGH : LOW;
+}
+
+bool leerInterruptorArriba() {
+  // Leer el interruptor con debounce y devolver el estado de la variable
+  return leerInterruptorDebounce(pinInterruptorArriba, 3, debounceDelay) == LOW; 
+}
+
+bool leerInterruptorAbajo() {
+  // Leer el interruptor con debounce y devolver el estado de la variable
+  return leerInterruptorDebounce(pinInterruptorAbajo, 3, debounceDelay) == LOW; 
+}
+
+// Función para encender la luz roja y apagar la verde
+void semaforoRojo() {
+  digitalWrite(releVerde, LOW);
+  digitalWrite(releRojo, HIGH);
+  Serial.println("SEMAFORO: ROJO");
+}
+
+// Función para encender la luz verde y apagar la roja
+void semaforoVerde() {
+  digitalWrite(releRojo, LOW);
+  digitalWrite(releVerde, HIGH);
+  Serial.println("SEMAFORO: VERDE");
+}
+
+// Función para apagar todas las luces del semáforo
+void semaforoApagado() {
+  digitalWrite(releRojo, LOW);
+  digitalWrite(releVerde, LOW);
+  Serial.println("SEMAFORO: APAGADO");
+}
+
+bool leerInfraAbajo_abajo() {
+  return leerConDebounce(infraAbajo_abajo, 3, 10) == LOW; // 5 lecturas con 10ms de delay
+}
+
+bool leerInfraAbajo_arriba() {
+  return leerConDebounce(infraAbajo_arriba, 3, 10) == LOW;
+}
+
+bool leerInfraIzquierda_arriba() {
+  return leerConDebounce(infraIzquierda_arriba, 3, 10) == LOW;
+}
+
+bool leerInfraIzquierda_pared() {
+  return leerConDebounce(infraIzquierda_pared, 3, 10) == LOW;
+}
+
+bool leerInfraDerecha_arriba() {
+  return leerConDebounce(infraDerecha_arriba, 3, 10) == LOW;
+}
+
+bool leerInfraDerecha_pared() {
+  return leerConDebounce(infraDerecha_pared, 3, 10) == LOW;
+}
+
+
+/*
+// Funciones para comprobar los sensores
+bool leerInfraAbajo_abajo() {
+  return digitalRead(infraAbajo_abajo) == LOW; // Suponiendo que LOW indica obstáculo
+}
+
+bool leerInfraAbajo_arriba() {
+  return digitalRead(infraAbajo_arriba) == LOW; // Suponiendo que LOW indica obstáculo
+}
+
+bool leerInfraIzquierda_arriba() {
+  return digitalRead(infraIzquierda_arriba) == LOW; // Suponiendo que LOW indica obstáculo
+}
+
+bool leerInfraIzquierda_pared() {
+  return digitalRead(infraIzquierda_pared) == LOW; // Suponiendo que LOW indica obstáculo
+}
+
+bool leerInfraDerecha_arriba() {
+  return digitalRead(infraDerecha_arriba) == LOW; // Suponiendo que LOW indica obstáculo
+}
+
+bool leerInfraDerecha_pared() {
+  return digitalRead(infraDerecha_pared) == LOW; // Suponiendo que LOW indica obstáculo
+}
+*/
+
+// Función de bucle principal
+void loop() {
+
+   // Leer el estado de los interruptores con debounce
+  bool estadoPuertaArriba = leerInterruptorArriba();
+  bool estadoPuertaAbajo = leerInterruptorAbajo();
+
+  puertaArriba = estadoPuertaArriba;
+  puertaAbajo = estadoPuertaAbajo;
+
+  // Imprimir el estado de las variables para ver el resultado
+  //Serial.print("Estado de puertaArriba: ");
+  //Serial.println(estadoPuertaArriba ? "ACTIVADO" : "DESACTIVADO");
+  //Serial.print("Estado de puertaAbajo: ");
+  //Serial.println(estadoPuertaAbajo ? "ACTIVADO" : "DESACTIVADO");
+
+  // Recibo comunicaciones serial del rs485 -> añadir resistencia 120R al final
+  if (rs485Serial.available()) {
+    String mensaje = rs485Serial.readStringUntil('\n');
+    Serial.print("ARDUINO MEGA (MSG RECIBIDO): ");
+    Serial.println(mensaje);
+
+    procesarMensaje(mensaje);
+    /*
+    Configuración DE/RE: El pin DE/RE controla el modo de transmisión y recepción del módulo RS485. Debe estar en HIGH cuando se envían datos y en LOW cuando se recibe.
+    Resistencias de Terminación: En largas distancias de comunicación RS485, considera usar resistencias de terminación de 120Ω al final de la línea para evitar reflexiones de señal.
+    Coloca una resistencia de terminación de 120Ω entre los pines A y B en cada extremo del bus RS485. Esto ayudará a minimizar las reflexiones de la señal.
+    agregar resistencias de polarización de 680Ω a 1kΩ entre A y GND y entre B y GND en cada extremo del bus para mantener el bus en un estado definido cuando no hay transmisión de datos.
+    */
+  }
+
+
+
+  // Comprobar el estado de las variables booleanas
+  if (puertaArriba) {
+
+    Serial.println("--- ENTRANDO EN PUERTA ARRIBA");
+    
+    // Leer sensores infrarojos, 1ª vez
+    bool sensorIzquierda_arriba = leerInfraIzquierda_arriba();
+    bool sensorIzquierda_pared = leerInfraIzquierda_pared();
+    bool sensorDerecha_arriba = leerInfraDerecha_arriba();
+    bool sensorDerecha_pared = leerInfraDerecha_pared();
+
+    delay(tiempoComprobacionSensores); // Espero tiempo para hacer doble comprobación y evitar falsos positivos.
+
+    // Leer sensores infrarojos, 2ª vez.
+    bool sensorIzquierda_arriba_aux = leerInfraIzquierda_arriba();
+    bool sensorIzquierda_pared_aux = leerInfraIzquierda_pared();
+    bool sensorDerecha_arriba_aux = leerInfraDerecha_arriba();
+    bool sensorDerecha_pared_aux = leerInfraDerecha_pared();
+
+    // Declaro variables para comprobaciones finales, y hacer condicionales más faciles.
+    bool estadoIzquierda_arriba = false;
+    bool estadoIzquierda_pared = false;
+    bool estadoDerecha_arriba = false;
+    bool estadoDerecha_pared = false;
+
+    // Doble comprobacion
+    if (sensorIzquierda_arriba == true && sensorIzquierda_arriba_aux == true) { estadoIzquierda_arriba = true; }
+    if (sensorIzquierda_pared == true && sensorIzquierda_pared_aux == true) { estadoIzquierda_pared = true; }
+    if (sensorDerecha_arriba == true && sensorDerecha_arriba_aux == true) { estadoDerecha_arriba = true; }
+    if (sensorDerecha_pared == true && sensorDerecha_pared_aux == true) { estadoDerecha_pared = true; }
+
+    // ESTADO DE LA PUERTA
+    if ( estadoIzquierda_arriba && estadoDerecha_arriba && !estadoIzquierda_pared && !estadoDerecha_pared ) {
+      estadoArriba = 0;
+      //Serial.println("PUERTA ARRIBA: CERRADA");
+    } else if ( !estadoIzquierda_arriba && !estadoDerecha_arriba && !estadoIzquierda_pared && !estadoDerecha_pared ) {
+      estadoArriba = 1;
+      //Serial.println("PUERTA ARRIBA: MOVIMIENTO");
+    } else if ( !estadoIzquierda_arriba && !estadoDerecha_arriba && estadoIzquierda_pared && estadoDerecha_pared ) {
+      estadoArriba = 2;
+      //Serial.println("PUERTA ARRIBA: ABIERTA");
+    } else {
+      semaforoApagado();
+      Serial.println("PUERTA ARRIBA: OTRO ESTADO");
+    }
+
+  } // fin comprobacion de la puerta de arriba
+  
+
+  if (puertaAbajo) {
+    
+    Serial.println("--- ENTRANDO EN PUERTA ABAJO");
+
+    // Leer sensores infrarojos, 1ª vez.
+    bool sensorAbajo_abajo = leerInfraAbajo_abajo();
+    bool sensorAbajo_arriba = leerInfraAbajo_arriba();
+
+    delay(tiempoComprobacionSensores); // Espero tiempo para hacer doble comprobación y evitar falsos positivos.
+
+    // Leer sensores infrarojos, 2ª vez.
+    bool sensorAbajo_abajo_aux = leerInfraAbajo_abajo();
+    bool sensorAbajo_arriba_aux = leerInfraAbajo_arriba();
+
+    // Declaro variables para comprobaciones finales, y hacer condicionales más faciles.
+    bool estadoAbajo_abajo = false;
+    bool estadoAbajo_arriba = false;
+
+    // Doble comprobacion
+    if (sensorAbajo_abajo == true && sensorAbajo_abajo_aux == true) { estadoAbajo_abajo = true; }
+    if (sensorAbajo_arriba == true && sensorAbajo_arriba_aux == true) { estadoAbajo_arriba = true; }
+
+    // ESTADO DE LA PUERTA
+    if ( estadoAbajo_abajo && estadoAbajo_arriba ) { // si hay sensor en el sensor de abajo y arriba
+      estadoAbajo = 0;
+      //Serial.println("PUERTA ABAJO: CERRADA");
+    } else if ( !estadoAbajo_abajo && !estadoAbajo_arriba ) {
+      estadoAbajo = 1;
+      //Serial.println("PUERTA ABAJO: MOVIMIENTO");
+    } else if ( !estadoAbajo_abajo && estadoAbajo_arriba ) {
+      estadoAbajo = 2;
+      //Serial.println("PUERTA ABAJO: ABIERTA");
+    } else {
+      semaforoApagado(); // revisar 
+      Serial.println("PUERTA ABAJO: OTRO ESTADO");
+    }
+
+  } // fin comprobacion puerta de abajo
+  
+
+
+
+  // ESTADO Y CONTROL DEL SEMAFORO
+  if ( puertaArriba && puertaAbajo) { // CUANDO LAS 2 PUERTAS ESTAN ACTIVADAS
+
+    Serial.println("--- ENTRANDO EN LAS 2 PUERTAS ACTIVAS");
+
+    if (estadoArriba == 0 && estadoAbajo == 0) { // PUERTAS CERRADAS
+      Serial.println("ESTADO: LAS 2 PUERTAS ESTAN CERRADAS.");
+      semaforoApagado();
+    } else if (estadoArriba == 1 || estadoAbajo == 1 ) { // PUERTAS EN MOVIMIENTO
+      Serial.println("ESTADO: 1 o 2 PUERTAS ESTA EN MOVIMIENTO.");
+      semaforoRojo();
+    } else if (estadoArriba == 2 && estadoAbajo == 2) { // PUERTAS ABIERTAS
+      Serial.println("ESTADO: LAS 2 PUERTAS ESTAN ABIERTAS.");
+      semaforoVerde();
+    } else {
+      Serial.println("ESTADO: OTRO ESTADO, ELSE");
+      semaforoApagado();
+    }
+
+
+  } else if ( puertaAbajo && !puertaArriba ) { // SOLO PUERTA DE ABAJO ACTIVADA
+
+
+    if (estadoAbajo == 0) { // PUERTA CERRADA
+      Serial.println("ESTADO: PUERTA DE ABAJO CERRADA.");
+      semaforoApagado();
+    } else if (estadoAbajo == 1 ) { // PUERTA EN MOVIMIENTO
+      Serial.println("ESTADO: PUERTA DE ABAJO EN MOVIMIENTO.");
+      semaforoRojo();
+    } else if (estadoAbajo == 2) { // PUERTA ABIERTA
+      Serial.println("ESTADO: PUERTA DE ABAJO ABIERTA.");
+      semaforoVerde();
+    } else {
+      Serial.println("ESTADO: OTRO ESTADO, ELSE");
+      semaforoApagado();
+    }
+
+  } else if ( puertaArriba && !puertaAbajo ) { // SOLO PUERTA DE ARRIBA ACTIVADA
+
+    if (estadoArriba == 0) { // PUERTA CERRADA
+      Serial.println("ESTADO: PUERTA DE ARRIBA CERRADA.");
+      semaforoApagado();
+    } else if (estadoArriba == 1 ) { // PUERTA EN MOVIMIENTO
+      Serial.println("ESTADO: PUERTA DE ARRIBA EN MOVIMIENTO.");
+      semaforoRojo();
+    } else if (estadoArriba == 2) { // PUERTA ABIERTA
+      Serial.println("ESTADO: PUERTA DE ARRIBA ABIERTA.");
+      semaforoVerde();
+    } else {
+      Serial.println("ESTADO: OTRO ESTADO, ELSE");
+      semaforoApagado();
+    }
+
+  } else if ( !puertaArriba && !puertaAbajo ) { // NINGUNA PUERTA ACTIVADA
+    Serial.println("CONTROL DEL SEMAFORO: LAS 2 PUERTAS ESTAN DESACTIVADAS, VARIABLES == FALSE");
+    semaforoApagado();
+  } else {
+    Serial.println("ESTADO: -> OTRA CONDICION, ELSE");
+    semaforoApagado();
+  }
+
+  Serial.println("-------------------");
+  delay (1000);
+
+  // Esto para los sensores de luz en un futuro
+  //activarRelePuertaArriba();
+  //activarRelePuertaAbajo();
+
+
+} // fin de loop
