@@ -1,0 +1,142 @@
+#define DE_RE_PIN 2  // Pin para controlar DE y RE
+#define TX_PIN 1     // Pin TX del Arduino (conectado a DI del módulo RS485)
+#define DELIMITADOR ':'
+
+// Definición de pines para el sensor 1
+const int trigPin1 = 12;
+const int echoPin1 = 11;
+const int relayPin1 = 8;
+
+// Definición de pines para el sensor 2
+const int trigPin2 = 10;
+const int echoPin2 = 9;
+const int relayPin2 = 7;
+
+// Umbral de distancia en centímetros
+const int distanciaUmbral = 400;  // Si la distancia es <= a este umbral, se activa el relé
+
+// Número de lecturas para calcular la mediana
+const int numLecturas = 5;
+
+unsigned long simpleHash(const String& str) {
+    unsigned long hash = 0;
+    for (int i = 0; i < str.length(); i++) {
+        hash = hash * 31 + str[i];
+    }
+    return hash;
+}
+
+void enviarMensaje(String mensaje) {
+    unsigned long hash = simpleHash(mensaje);
+    Serial.print(hash);
+    Serial.print(DELIMITADOR);  // Delimitador entre hash y mensaje
+    Serial.println(mensaje);
+    Serial.flush();
+    delay(100);
+}
+
+// Función para leer la distancia filtrada (mediana) usando el sensor de ultrasonidos
+int leerDistanciaFiltrada(int trigPin, int echoPin) {
+  int lecturas[numLecturas];
+
+  // Realizar múltiples lecturas
+  for (int i = 0; i < numLecturas; i++) {
+    lecturas[i] = medirDistancia(trigPin, echoPin);
+    delay(10);  // Pequeño retraso entre lecturas
+  }
+
+  // Ordenar las lecturas
+  ordenarLecturas(lecturas, numLecturas);
+
+  // Devolver la mediana (el valor medio)
+  return lecturas[numLecturas / 2];
+}
+
+// Función para medir la distancia usando el sensor de ultrasonidos
+int medirDistancia(int trigPin, int echoPin) {
+  // Generar un pulso de 10us en el pin TRIG
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Leer el tiempo del pulso en el pin ECHO
+  long duracion = pulseIn(echoPin, HIGH);
+
+  // Convertir la duración en distancia (cm)
+  int distancia = duracion * 0.034 / 2;
+
+  // Si la distancia es razonable, devolverla, de lo contrario devolver -1
+  return (distancia > 0 && distancia < 400) ? distancia : -1;
+}
+
+// Función para ordenar un array de enteros usando el algoritmo de burbuja
+void ordenarLecturas(int *arr, int n) {
+  for (int i = 0; i < n-1; i++) {
+    for (int j = 0; j < n-i-1; j++) {
+      if (arr[j] > arr[j+1]) {
+        int temp = arr[j];
+        arr[j] = arr[j+1];
+        arr[j+1] = temp;
+      }
+    }
+  }
+}
+
+// Función para activar el relé durante 1 segundo
+void activarRele(int relePin) {
+  digitalWrite(relePin, HIGH);  // Encender relé
+  delay(1000);                  // Mantener encendido durante 1 segundo
+  digitalWrite(relePin, LOW);   // Apagar relé
+}
+
+void setup() {
+  pinMode(DE_RE_PIN, OUTPUT);
+  Serial.begin(9600);  // Configura la velocidad en baudios
+  digitalWrite(DE_RE_PIN, HIGH);  // Activa el modo transmisión
+
+  // Configuración de los pines de los sensores
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  pinMode(relayPin1, OUTPUT);
+
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin2, INPUT);
+  pinMode(relayPin2, OUTPUT);
+
+  // Inicializar los relés en estado LOW (apagados)
+  digitalWrite(relayPin1, LOW);
+  digitalWrite(relayPin2, LOW);
+}
+
+void loop() {
+
+  String mensaje = "";
+  
+  // Leer la distancia filtrada de cada sensor
+  int distancia1 = leerDistanciaFiltrada(trigPin1, echoPin1);
+  int distancia2 = leerDistanciaFiltrada(trigPin2, echoPin2);
+
+  // Mostrar distancias en el monitor serial para depuración
+  Serial.print("Distancia 1: ");
+  Serial.print(distancia1);
+  Serial.print(" cm, Distancia 2: ");
+  Serial.print(distancia2);
+  Serial.println(" cm");
+
+  // Verificar si la distancia está por debajo del umbral y activar el relé correspondiente
+  if (distancia1 > 0 && distancia1 <= distanciaUmbral) {
+    activarRele(relayPin1);
+    enviarMensaje("ABRIR");  // Llamada a la función para enviar el mensaje
+  }
+
+  if (distancia2 > 0 && distancia2 <= distanciaUmbral) {
+    activarRele(relayPin2);
+    enviarMensaje("ABRIR");  // Llamada a la función para enviar el mensaje
+  }
+
+
+  
+  
+}
