@@ -1,0 +1,22 @@
+import serial
+
+# Configura el puerto y la velocidad de baudios
+puerto_serial = '/dev/ttyACM0'  # Cambia esto si es necesario
+velocidad_baudios = 9600
+
+# O este puerto
+#puerto_serial = '/dev/ttyUSB0'  # Cambia esto si es necesario
+
+
+# Configura el puerto serial
+ser = serial.Serial(puerto_serial, velocidad_baudios, timeout=1)
+
+try:
+    while True:
+        if ser.in_waiting > 0:
+            mensaje = ser.readline().decode('utf-8').rstrip()
+            print(f"Mensaje del Arduino: {mensaje}")
+except KeyboardInterrupt:
+    print("Interrupción por teclado, cerrando...")
+finally:
+    ser.close()
