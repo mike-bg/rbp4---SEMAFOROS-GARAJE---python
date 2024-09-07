@@ -1,0 +1,85 @@
+#define DE_RE_PIN 2  // Pin para controlar DE y RE
+
+
+
+
+// PARA EL ENVIO EN RS485 y hash
+#define MAX_MENSAJES 10
+#define DELIMITADOR ':'
+
+struct Mensaje {
+    unsigned long hash;
+    String contenido;
+};
+
+Mensaje mensajes[MAX_MENSAJES];
+int indice = 0;
+unsigned long hashesGuardados[MAX_MENSAJES];
+
+unsigned long simpleHash(const String& str) {
+    unsigned long hash = 0;
+    for (int i = 0; i < str.length(); i++) {
+        hash = hash * 31 + str[i];
+    }
+    return hash;
+}
+
+
+
+
+void setup() {
+  pinMode(DE_RE_PIN, OUTPUT);
+  digitalWrite(DE_RE_PIN, LOW);  // Activa el modo recepción
+  Serial.begin(9600);            // Configura la velocidad en baudios para el monitor serie
+  Serial1.begin(9600);           // Configura la velocidad en baudios para RS485 (Serial1)
+}
+
+void loop() {
+    while (Serial1.available()) {
+        String mensaje = Serial1.readStringUntil('\n');
+        int hashDelimitador = mensaje.indexOf(':');
+        if (hashDelimitador != -1) {
+            unsigned long hash = mensaje.substring(0, hashDelimitador).toInt();
+            String contenido = mensaje.substring(hashDelimitador + 1);
+
+            // Verifica si el mensaje ya está en el array
+            bool esDuplicado = false;
+            for (int i = 0; i < indice; i++) {
+                if (mensajes[i].hash == hash || mensajes[i].contenido == contenido) {
+                    esDuplicado = true;
+                    break;
+                }
+            }
+
+            // Añade el mensaje si no es duplicado
+            if (!esDuplicado) {
+                if (indice < MAX_MENSAJES) {
+                    mensajes[indice].hash = hash;
+                    mensajes[indice].contenido = contenido;
+                    indice++;
+                } else {
+                    Serial.println("Array lleno, no se pueden almacenar más mensajes.");
+                }
+            } else {
+                //Serial.println("Mensaje duplicado (hash o contenido) ignorado.");
+            }
+        }
+    }
+
+    if (indice > 0) {
+        //Serial.println("Procesando y vaciando el array de mensajes:");
+
+        for (int i = 0; i < indice; i++) {
+            Serial.print("Hash ");
+            Serial.print(mensajes[i].hash);
+            Serial.print(": ");
+            Serial.println(mensajes[i].contenido);
+        }
+
+        // Vaciar el array
+        indice = 0;
+        Serial.println("Mensajes procesados y array vaciado.");
+    }
+
+    delay(5000);
+}
